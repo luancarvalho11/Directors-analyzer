@@ -170,7 +170,7 @@ def parse_letterboxd_zip(uploaded_file):
     username = profile[0].get("Username", "Usuário") if profile else "Usuário"
     return username, watched
 
-class NumberedDarkCanvas(canvas.Canvas):
+class LetterboxdCanvas(canvas.Canvas):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._saved_page_states = []
@@ -195,35 +195,28 @@ class NumberedDarkCanvas(canvas.Canvas):
         # Header (Letterboxd Style)
         if self._pageNumber > 1:
             self.drawString(54, 755, "LETTERBOXD STATS  •  DIRETORES & ATORES MAIS ASSISTIDOS")
-            self.setStrokeColor(colors.HexColor("#2C3440"))
-            self.setLineWidth(0.8)
+            self.setStrokeColor(colors.HexColor("#D8E0E8"))
+            self.setLineWidth(0.6)
             self.line(54, 747, 558, 747)
 
         # Footer
         footer_text = f"Página {self._pageNumber} de {page_count}"
-        self.drawRightString(558, 30, footer_text)
-        self.drawString(54, 30, "Letterboxd Insights  •  Dados via TMDb API")
-        self.setStrokeColor(colors.HexColor("#2C3440"))
-        self.setLineWidth(0.8)
-        self.line(54, 40, 558, 40)
+        self.drawRightString(558, 32, footer_text)
+        self.drawString(54, 32, "Letterboxd Insights  •  Dados via TMDb API")
+        self.setStrokeColor(colors.HexColor("#D8E0E8"))
+        self.setLineWidth(0.6)
+        self.line(54, 42, 558, 42)
         self.restoreState()
-
-def draw_dark_background(canv, doc):
-    canv.saveState()
-    # Fundo oficial escuro do Letterboxd (#14181C) desenhado ANTES de renderizar o texto
-    canv.setFillColor(colors.HexColor("#14181C"))
-    canv.rect(0, 0, 612, 792, fill=True, stroke=False)
-    canv.restoreState()
 
 def format_stars(rating_str):
     if not rating_str:
-        return "<font color='#678'>Sem nota</font>"
+        return "<font color='#89a'>Sem nota</font>"
     try:
         val = float(rating_str)
         full = int(val)
         half = 1 if (val - full) >= 0.5 else 0
         stars = "★" * full + ("½" if half else "")
-        return f"<font color='#FFFFFF'><b>{val:g}</b></font> <font color='#00E054'>{stars}</font>"
+        return f"<b>{val:g}</b> <font color='#00E054'>{stars}</font>"
     except Exception:
         return rating_str
 
@@ -250,16 +243,17 @@ def build_person_block(rank, name, movies, styles):
     total_films = len(sorted_movies)
     avg_str = f"{sum(ratings_num)/len(ratings_num):.2f} ★" if ratings_num else "—"
 
+    # Header Card (Fundo Claro estilo Letterboxd)
     header_html = (
         f"<table width='100%'><tr>"
-        f"<td align='left'><font fontName='{TITLE_FONT}' size=11 color='#FFFFFF'><b>#{rank:02d}&nbsp;&nbsp;{name}</b></font></td>"
-        f"<td align='right'><font size=8.5 color='#9AB'>{total_films} filme{'s' if total_films > 1 else ''} | Média: <font color='#00E054'><b>{avg_str}</b></font> | <font color='#FF8000'>♥ {fav_count} fav</font></font></td>"
+        f"<td align='left'><font fontName='{TITLE_FONT}' size=11 color='#14181c'><b>#{rank:02d}&nbsp;&nbsp;{name}</b></font></td>"
+        f"<td align='right'><font size=8.5 color='#678'>{total_films} filme{'s' if total_films > 1 else ''} | Média: <font color='#00E054'><b>{avg_str}</b></font> | <font color='#FF8000'>♥ {fav_count} fav</font></font></td>"
         f"</tr></table>"
     )
 
     card_header = Table([[Paragraph(header_html, styles['HeaderPara'])]], colWidths=[504])
     card_header.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#202830")),
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#EBF0F5")),
         ('LEFTPADDING', (0,0), (-1,-1), 8),
         ('RIGHTPADDING', (0,0), (-1,-1), 8),
         ('TOPPADDING', (0,0), (-1,-1), 5),
@@ -278,7 +272,7 @@ def build_person_block(rank, name, movies, styles):
         year_str = str(m.get("year", "—"))
         title_str = f"<b>{m.get('name', '')}</b>"
         note_str = format_stars(m.get("rating", ""))
-        fav_str = "<font color='#FF8000'>♥ Sim</font>" if m.get("liked") else "<font color='#445566'>—</font>"
+        fav_str = "<font color='#FF8000'>♥ Sim</font>" if m.get("liked") else "<font color='#9ab'>—</font>"
 
         table_rows.append([
             Paragraph(year_str, styles['CellMuted']),
@@ -294,8 +288,8 @@ def build_person_block(rank, name, movies, styles):
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('TOPPADDING', (0,0), (-1,-1), 3),
         ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-        ('LINEBELOW', (0,0), (-1,-1), 0.4, colors.HexColor("#242C34")),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.HexColor("#191E24"), colors.HexColor("#161B20")]),
+        ('LINEBELOW', (0,0), (-1,-1), 0.4, colors.HexColor("#E3E8ED")),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor("#F8FAFC")]),
     ]))
 
     return KeepTogether([card_header, films_table, Spacer(1, 14)])
@@ -311,10 +305,9 @@ def generate_pdf(username, sorted_directors, director_movies, sorted_actors, act
         bottomMargin=54
     )
     
-    LB_WHITE = colors.HexColor("#FFFFFF")
+    LB_DARK = colors.HexColor("#14181C")
     LB_BLUE = colors.HexColor("#40BCF4")
-    LB_MUTED = colors.HexColor("#8899A6")
-    LB_ROW_TEXT = colors.HexColor("#DDE5ED")
+    LB_MUTED = colors.HexColor("#678")
 
     styles = getSampleStyleSheet()
 
@@ -324,7 +317,7 @@ def generate_pdf(username, sorted_directors, director_movies, sorted_actors, act
         fontName=TITLE_FONT,
         fontSize=22,
         leading=26,
-        textColor=LB_WHITE
+        textColor=LB_DARK
     )
     doc_sub_style = ParagraphStyle(
         'DocSub',
@@ -340,7 +333,7 @@ def generate_pdf(username, sorted_directors, director_movies, sorted_actors, act
         fontName=TITLE_FONT,
         fontSize=15,
         leading=19,
-        textColor=LB_WHITE,
+        textColor=LB_DARK,
         spaceBefore=8,
         spaceAfter=10
     )
@@ -365,7 +358,7 @@ def generate_pdf(username, sorted_directors, director_movies, sorted_actors, act
         fontName='Helvetica-Bold',
         fontSize=8.5,
         leading=11,
-        textColor=LB_WHITE
+        textColor=LB_DARK
     ))
     styles.add(ParagraphStyle(
         'CellNormal',
@@ -373,7 +366,7 @@ def generate_pdf(username, sorted_directors, director_movies, sorted_actors, act
         fontName='Helvetica',
         fontSize=8.5,
         leading=11,
-        textColor=LB_ROW_TEXT
+        textColor=LB_DARK
     ))
     styles.add(ParagraphStyle(
         'CellMuted',
@@ -387,7 +380,7 @@ def generate_pdf(username, sorted_directors, director_movies, sorted_actors, act
     story = [
         Paragraph("Letterboxd Stats", doc_title_style),
         Spacer(1, 4),
-        Paragraph(f"Perfil: <font color='#FFFFFF'><b>@{username}</b></font> &nbsp;|&nbsp; Catálogo de Diretores e Atores Mais Assistidos", doc_sub_style),
+        Paragraph(f"Perfil: <b>@{username}</b> &nbsp;|&nbsp; Catálogo de Diretores e Atores Mais Assistidos", doc_sub_style),
         Spacer(1, 10),
         HRFlowable(width="100%", thickness=1.5, color=LB_BLUE, spaceBefore=0, spaceAfter=14),
         Paragraph("Diretores Mais Assistidos", section_title),
@@ -408,12 +401,7 @@ def generate_pdf(username, sorted_directors, director_movies, sorted_actors, act
             block = build_person_block(rank, actor, movies, styles)
             story.append(block)
 
-    doc.build(
-        story,
-        canvasmaker=NumberedDarkCanvas,
-        onFirstPage=draw_dark_background,
-        onLaterPages=draw_dark_background
-    )
+    doc.build(story, canvasmaker=LetterboxdCanvas)
     buffer.seek(0)
     return buffer.getvalue()
 
