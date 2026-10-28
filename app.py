@@ -38,7 +38,6 @@ CACHE_FILE = "tmdb_credits_cache.json"
 
 # Garantir fontes com estilo Letterboxd (Roboto Slab para títulos)
 def setup_fonts():
-    # Roboto Slab Bold
     if not os.path.exists("RobotoSlab-Bold.ttf"):
         try:
             url = "https://fonts.gstatic.com/s/robotoslab/v36/BngbUXZYTXPIvIBgJJSb6s3BzlRRfKOFbvjoa4OWaA.ttf"
@@ -171,7 +170,7 @@ def parse_letterboxd_zip(uploaded_file):
     username = profile[0].get("Username", "Usuário") if profile else "Usuário"
     return username, watched
 
-class LetterboxdCanvas(canvas.Canvas):
+class NumberedDarkCanvas(canvas.Canvas):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._saved_page_states = []
@@ -196,33 +195,39 @@ class LetterboxdCanvas(canvas.Canvas):
         # Header (Letterboxd Style)
         if self._pageNumber > 1:
             self.drawString(54, 755, "LETTERBOXD STATS  •  DIRETORES & ATORES MAIS ASSISTIDOS")
-            self.setStrokeColor(colors.HexColor("#D8E0E8"))
-            self.setLineWidth(0.6)
+            self.setStrokeColor(colors.HexColor("#2C3440"))
+            self.setLineWidth(0.8)
             self.line(54, 747, 558, 747)
 
         # Footer
         footer_text = f"Página {self._pageNumber} de {page_count}"
-        self.drawRightString(558, 32, footer_text)
-        self.drawString(54, 32, "Letterboxd Insights  •  Dados via TMDb API")
-        self.setStrokeColor(colors.HexColor("#D8E0E8"))
-        self.setLineWidth(0.6)
-        self.line(54, 42, 558, 42)
+        self.drawRightString(558, 30, footer_text)
+        self.drawString(54, 30, "Letterboxd Insights  •  Dados via TMDb API")
+        self.setStrokeColor(colors.HexColor("#2C3440"))
+        self.setLineWidth(0.8)
+        self.line(54, 40, 558, 40)
         self.restoreState()
+
+def draw_dark_background(canv, doc):
+    canv.saveState()
+    # Fundo oficial escuro do Letterboxd (#14181C) desenhado ANTES de renderizar o texto
+    canv.setFillColor(colors.HexColor("#14181C"))
+    canv.rect(0, 0, 612, 792, fill=True, stroke=False)
+    canv.restoreState()
 
 def format_stars(rating_str):
     if not rating_str:
-        return "<font color='#89a'>Sem nota</font>"
+        return "<font color='#678'>Sem nota</font>"
     try:
         val = float(rating_str)
         full = int(val)
         half = 1 if (val - full) >= 0.5 else 0
         stars = "★" * full + ("½" if half else "")
-        return f"<b>{val:g}</b> <font color='#00E054'>{stars}</font>"
+        return f"<font color='#FFFFFF'><b>{val:g}</b></font> <font color='#00E054'>{stars}</font>"
     except Exception:
         return rating_str
 
-def build_person_block(rank, name, movies, styles, person_type="Diretor"):
-    # Ordenar filmes por ano ascendente
+def build_person_block(rank, name, movies, styles):
     def get_year(m):
         try:
             return int(m.get('year', 0))
@@ -230,7 +235,6 @@ def build_person_block(rank, name, movies, styles, person_type="Diretor"):
             return 9999
     sorted_movies = sorted(movies, key=get_year)
 
-    # Calcular média e favoritos
     ratings_num = []
     fav_count = 0
     for m in sorted_movies:
@@ -246,17 +250,16 @@ def build_person_block(rank, name, movies, styles, person_type="Diretor"):
     total_films = len(sorted_movies)
     avg_str = f"{sum(ratings_num)/len(ratings_num):.2f} ★" if ratings_num else "—"
 
-    # Header Card (Estilo Letterboxd / Imagem do usuário)
     header_html = (
         f"<table width='100%'><tr>"
-        f"<td align='left'><font fontName='{TITLE_FONT}' size=11 color='#14181c'><b>#{rank:02d}&nbsp;&nbsp;{name}</b></font></td>"
-        f"<td align='right'><font size=8.5 color='#678'>{total_films} filme{'s' if total_films > 1 else ''} | Média: <font color='#00E054'><b>{avg_str}</b></font> | <font color='#FF8000'>♥ {fav_count} fav</font></font></td>"
+        f"<td align='left'><font fontName='{TITLE_FONT}' size=11 color='#FFFFFF'><b>#{rank:02d}&nbsp;&nbsp;{name}</b></font></td>"
+        f"<td align='right'><font size=8.5 color='#9AB'>{total_films} filme{'s' if total_films > 1 else ''} | Média: <font color='#00E054'><b>{avg_str}</b></font> | <font color='#FF8000'>♥ {fav_count} fav</font></font></td>"
         f"</tr></table>"
     )
 
     card_header = Table([[Paragraph(header_html, styles['HeaderPara'])]], colWidths=[504])
     card_header.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#EBF0F5")),
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#202830")),
         ('LEFTPADDING', (0,0), (-1,-1), 8),
         ('RIGHTPADDING', (0,0), (-1,-1), 8),
         ('TOPPADDING', (0,0), (-1,-1), 5),
@@ -264,7 +267,6 @@ def build_person_block(rank, name, movies, styles, person_type="Diretor"):
         ('LINEBELOW', (0,0), (-1,-1), 1.2, colors.HexColor("#40BCF4")),
     ]))
 
-    # Linhas da Tabela de Filmes
     table_rows = [[
         Paragraph("<b>Ano</b>", styles['ColHeader']),
         Paragraph("<b>Título do Filme</b>", styles['ColHeader']),
@@ -276,7 +278,7 @@ def build_person_block(rank, name, movies, styles, person_type="Diretor"):
         year_str = str(m.get("year", "—"))
         title_str = f"<b>{m.get('name', '')}</b>"
         note_str = format_stars(m.get("rating", ""))
-        fav_str = "<font color='#FF8000'>♥ Sim</font>" if m.get("liked") else "<font color='#9ab'>—</font>"
+        fav_str = "<font color='#FF8000'>♥ Sim</font>" if m.get("liked") else "<font color='#445566'>—</font>"
 
         table_rows.append([
             Paragraph(year_str, styles['CellMuted']),
@@ -292,8 +294,8 @@ def build_person_block(rank, name, movies, styles, person_type="Diretor"):
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('TOPPADDING', (0,0), (-1,-1), 3),
         ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-        ('LINEBELOW', (0,0), (-1,-1), 0.4, colors.HexColor("#E3E8ED")),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor("#F8FAFC")]),
+        ('LINEBELOW', (0,0), (-1,-1), 0.4, colors.HexColor("#242C34")),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.HexColor("#191E24"), colors.HexColor("#161B20")]),
     ]))
 
     return KeepTogether([card_header, films_table, Spacer(1, 14)])
@@ -309,13 +311,10 @@ def generate_pdf(username, sorted_directors, director_movies, sorted_actors, act
         bottomMargin=54
     )
     
-    # Cores Oficiais Letterboxd
-    # Fundo escuro site: #14181c / #202830
-    # Acentos: Laranja #FF8000, Verde #00E054, Azul #40BCF4, Texto #678 / #14181c
-    LB_DARK = colors.HexColor("#14181C")
+    LB_WHITE = colors.HexColor("#FFFFFF")
     LB_BLUE = colors.HexColor("#40BCF4")
-    LB_GREEN = colors.HexColor("#00E054")
-    LB_MUTED = colors.HexColor("#678")
+    LB_MUTED = colors.HexColor("#8899A6")
+    LB_ROW_TEXT = colors.HexColor("#DDE5ED")
 
     styles = getSampleStyleSheet()
 
@@ -325,7 +324,7 @@ def generate_pdf(username, sorted_directors, director_movies, sorted_actors, act
         fontName=TITLE_FONT,
         fontSize=22,
         leading=26,
-        textColor=LB_DARK
+        textColor=LB_WHITE
     )
     doc_sub_style = ParagraphStyle(
         'DocSub',
@@ -341,7 +340,7 @@ def generate_pdf(username, sorted_directors, director_movies, sorted_actors, act
         fontName=TITLE_FONT,
         fontSize=15,
         leading=19,
-        textColor=LB_DARK,
+        textColor=LB_WHITE,
         spaceBefore=8,
         spaceAfter=10
     )
@@ -366,7 +365,7 @@ def generate_pdf(username, sorted_directors, director_movies, sorted_actors, act
         fontName='Helvetica-Bold',
         fontSize=8.5,
         leading=11,
-        textColor=LB_DARK
+        textColor=LB_WHITE
     ))
     styles.add(ParagraphStyle(
         'CellNormal',
@@ -374,7 +373,7 @@ def generate_pdf(username, sorted_directors, director_movies, sorted_actors, act
         fontName='Helvetica',
         fontSize=8.5,
         leading=11,
-        textColor=LB_DARK
+        textColor=LB_ROW_TEXT
     ))
     styles.add(ParagraphStyle(
         'CellMuted',
@@ -388,30 +387,33 @@ def generate_pdf(username, sorted_directors, director_movies, sorted_actors, act
     story = [
         Paragraph("Letterboxd Stats", doc_title_style),
         Spacer(1, 4),
-        Paragraph(f"Perfil: <b>@{username}</b> &nbsp;|&nbsp; Catálogo de Diretores e Atores Mais Assistidos", doc_sub_style),
+        Paragraph(f"Perfil: <font color='#FFFFFF'><b>@{username}</b></font> &nbsp;|&nbsp; Catálogo de Diretores e Atores Mais Assistidos", doc_sub_style),
         Spacer(1, 10),
         HRFlowable(width="100%", thickness=1.5, color=LB_BLUE, spaceBefore=0, spaceAfter=14),
         Paragraph("Diretores Mais Assistidos", section_title),
         Spacer(1, 4)
     ]
 
-    # Blocos de Diretores (Top 25)
     for rank, (director, count) in enumerate(sorted_directors[:25], start=1):
         movies = director_movies[director]
-        block = build_person_block(rank, director, movies, styles, person_type="Diretor")
+        block = build_person_block(rank, director, movies, styles)
         story.append(block)
 
-    # Blocos de Atores (Top 20 com pelo menos 2 filmes)
     if sorted_actors:
         story.append(PageBreak())
         story.append(Paragraph("Atores Mais Assistidos (Mínimo de 2 filmes)", section_title))
         story.append(Spacer(1, 4))
         for rank, (actor, count) in enumerate(sorted_actors[:20], start=1):
             movies = actor_movies[actor]
-            block = build_person_block(rank, actor, movies, styles, person_type="Ator")
+            block = build_person_block(rank, actor, movies, styles)
             story.append(block)
 
-    doc.build(story, canvasmaker=LetterboxdCanvas)
+    doc.build(
+        story,
+        canvasmaker=NumberedDarkCanvas,
+        onFirstPage=draw_dark_background,
+        onLaterPages=draw_dark_background
+    )
     buffer.seek(0)
     return buffer.getvalue()
 
